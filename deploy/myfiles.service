@@ -1,0 +1,26 @@
+# systemd unit for MyFiles.
+# Install: sudo cp deploy/myfiles.service /etc/systemd/system/
+#          sudo systemctl daemon-reload && sudo systemctl enable --now myfiles
+# Adjust User, WorkingDirectory and ExecStart if you installed somewhere other than /opt/myfiles.
+
+[Unit]
+Description=MyFiles personal file storage
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=myfiles
+Group=myfiles
+WorkingDirectory=/opt/myfiles
+ExecStart=/opt/myfiles/.venv/bin/python -m myfiles serve
+Restart=on-failure
+RestartSec=5
+
+# Hardening. STORAGE_PATH must be writable by the myfiles user.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
