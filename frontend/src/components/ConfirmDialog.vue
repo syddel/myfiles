@@ -1,7 +1,7 @@
 <script setup>
 import Modal from './Modal.vue'
 
-defineProps({ title: String, message: String, confirmText: String })
+defineProps({ title: String, message: String, confirmText: String, danger: { type: Boolean, default: true } })
 const emit = defineEmits(['close', 'confirm'])
 </script>
 
@@ -10,7 +10,7 @@ const emit = defineEmits(['close', 'confirm'])
     <p class="text-sm text-slate-600">{{ message }}</p>
     <template #footer>
       <button class="btn btn-ghost" @click="emit('close')">Cancel</button>
-      <button class="btn btn-danger" autofocus @click="emit('confirm')">{{ confirmText }}</button>
+      <button class="btn" :class="danger ? 'btn-danger' : 'btn-primary'" autofocus @click="emit('confirm')">{{ confirmText }}</button>
     </template>
   </Modal>
 </template>

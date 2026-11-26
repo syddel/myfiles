@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   ArrowDown, ArrowUp, ChevronRight, CloudUpload, CornerLeftUp, Link2, Share2, ShieldCheck, Download, EllipsisVertical, Eye, FolderInput,
-  FolderPlus, FolderUp, KeyRound, LogOut, Monitor, Moon, Pencil, Search, Sun, Trash2, Upload, User, X,
+  FolderPlus, FolderUp, KeyRound, ListMusic, ListPlus, LogOut, Monitor, Moon, Pencil, Search, Sun, Trash2, Upload, User, X,
 } from 'lucide-vue-next'
 import { api, contentUrl, zipUrl } from '../api'
 import { prefs, savePrefs, setTheme } from '../prefs'
 import { formatDate, formatSize, typeLabel } from '../format'
 import { toast } from '../toast'
+import { addToPlaylist } from '../player'
+import { playlistAddedMessage } from '../audioFormat'
 import { enqueueUploads, filesFromDrop, filesFromInput, onUploadFinished, uploads } from '../uploads'
 import ConfirmDialog from './ConfirmDialog.vue'
 import FileIcon from './FileIcon.vue'
@@ -19,6 +21,8 @@ import PromptDialog from './PromptDialog.vue'
 import ShareDialog from './ShareDialog.vue'
 import SharesView from './SharesView.vue'
 import AdminView from './AdminView.vue'
+import MiniPlayer from './MiniPlayer.vue'
+import PlaylistView from './PlaylistView.vue'
 import UploadPanel from './UploadPanel.vue'
 import { ROOT_NAME } from '../utils'
 
@@ -32,10 +36,10 @@ function folderFromHash() {
   return m ? Number(m[1]) : props.user.root_id
 }
 
-// '#/shared' shows the list of shared folders instead of the file list.
-// '#/shared' and '#/admin' show those pages instead of the file list.
+// '#/shared', '#/playlist' and '#/admin' show those pages instead of the file list.
 function pageFromHash() {
   if (location.hash === '#/shared') return 'shares'
+  if (location.hash === '#/playlist') return 'playlist'
   if (location.hash === '#/admin' && props.user.is_admin) return 'admin'
   return 'files'
 }
@@ -124,8 +128,8 @@ watch(query, () => {
   clearTimeout(searchTimer)
   selection.clear()
   if (!searching.value) return
-  // Searching from the shares page switches back to the file list (keeping the query).
-  if (page.value === 'shares') location.hash = folderId.value === props.user.root_id ? '#/' : `#/folder/${folderId.value}`
+  // Searching from the shares or playlist page switches back to the file list (keeping the query).
+  if (page.value === 'shares' || page.value === 'playlist') location.hash = folderId.value === props.user.root_id ? '#/' : `#/folder/${folderId.value}`
   searchTimer = setTimeout(runSearch, 200)
 })
 
@@ -209,11 +213,33 @@ function toggleAll() {
 
 const dialog = ref(null) // { type: 'new-folder' | 'rename' | 'delete' | 'move' | 'password', nodes? }
 const preview = ref(null)
+// Files the preview's ←/→ step through: the folder's, or just the one opened from the player bar.
+const previewSiblings = ref(null)
 
 function open(node) {
   if (node.is_dir) navigate(node.id)
-  else preview.value = node
+  else {
+    previewSiblings.value = null
+    preview.value = node
+  }
 }
+
+// From the player bar: the full player for what's playing.
+function openPlaying(node) {
+  previewSiblings.value = [node]
+  preview.value = node
+}
+
+// The audio files among `nodes` (a folder: those directly inside it) go to the end of the playlist.
+async function addNodesToPlaylist(nodes) {
+  try {
+    toast(playlistAddedMessage(await addToPlaylist(nodes)))
+  } catch (e) {
+    toast(e.message, 'error')
+  }
+}
+
+const canAddToPlaylist = (nodes) => nodes.some((n) => n.is_dir || n.kind === 'audio')
 
 async function createFolder(name) {
   try {
@@ -302,6 +328,7 @@ function menuAction(action) {
   if (action === 'open') open(nodes[0])
   else if (action === 'share') dialog.value = { type: 'share', node: nodes[0] }
   else if (action === 'download') download(nodes)
+  else if (action === 'playlist') addNodesToPlaylist(nodes)
   else if (action === 'rename') dialog.value = { type: 'rename', nodes }
   else dialog.value = { type: action, nodes }
 }
@@ -522,6 +549,14 @@ const statusText = computed(() => {
         <Link2 :size="16" /><span class="hidden md:inline">Shared</span>
       </a>
       <a
+        href="#/playlist"
+        class="btn shrink-0"
+        :class="page === 'playlist' ? 'bg-blue-50 text-blue-700 dark:text-blue-200' : 'btn-ghost'"
+        title="Audio playlist"
+      >
+        <ListMusic :size="16" /><span class="hidden md:inline">Playlist</span>
+      </a>
+      <a
         v-if="user.is_admin"
         href="#/admin"
         class="btn shrink-0"
@@ -574,6 +609,7 @@ const statusText = computed(() => {
 
     <SharesView v-if="page === 'shares'" @open-folder="navigate" />
     <AdminView v-if="page === 'admin'" :me="user" />
+    <PlaylistView v-if="page === 'playlist'" />
 
     <!-- Toolbar -->
     <div v-if="page === 'files'" class="flex min-h-14 flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 sm:px-5">
@@ -615,6 +651,9 @@ const statusText = computed(() => {
         <button v-if="selection.size === 1" class="btn btn-ghost" title="Rename (F2)" @click="dialog = { type: 'rename', nodes: selectedNodes }">
           <Pencil :size="16" /><span class="hidden lg:inline">Rename</span>
         </button>
+        <button v-if="canAddToPlaylist(selectedNodes)" class="btn btn-ghost" title="Add to playlist" @click="addNodesToPlaylist(selectedNodes)">
+          <ListPlus :size="16" /><span class="hidden lg:inline">Playlist</span>
+        </button>
         <button class="btn btn-ghost" title="Move to…" @click="dialog = { type: 'move', nodes: selectedNodes }">
           <FolderInput :size="16" /><span class="hidden lg:inline">Move</span>
         </button>
@@ -645,10 +684,11 @@ const statusText = computed(() => {
       </div>
     </div>
 
-    <!-- File list -->
+    <!-- File list. The drop highlight sits in this frame, outside the scrolling list,
+         so it covers the visible area however far the list is scrolled. -->
+    <div v-if="page === 'files'" class="relative flex min-h-0 flex-1 flex-col">
     <main
-      v-if="page === 'files'"
-      class="relative min-h-0 flex-1 overflow-auto"
+      class="min-h-0 flex-1 overflow-auto"
       @dragenter="onAreaDragEnter"
       @dragleave="onAreaDragLeave"
       @dragover="onAreaDragOver"
@@ -792,6 +832,7 @@ const statusText = computed(() => {
         </template>
       </div>
 
+    </main>
       <div
         v-if="externalDrag"
         class="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-500 bg-blue-50/80"
@@ -801,7 +842,7 @@ const statusText = computed(() => {
           <p class="font-medium">Drop to upload to “{{ breadcrumb.at(-1)?.name }}”</p>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- Status bar -->
     <footer v-if="page === 'files'" class="flex items-center justify-between gap-4 border-t border-slate-200 px-3 py-1.5 text-xs text-slate-500 sm:px-5">
@@ -845,6 +886,13 @@ const statusText = computed(() => {
       </button>
       <button v-if="menu.nodes.length === 1" class="flex w-full items-center gap-2 px-4 py-2 hover:bg-slate-100" @click="menuAction('rename')">
         <Pencil :size="16" /> Rename
+      </button>
+      <button
+        v-if="canAddToPlaylist(menu.nodes)"
+        class="flex w-full items-center gap-2 px-4 py-2 hover:bg-slate-100"
+        @click="menuAction('playlist')"
+      >
+        <ListPlus :size="16" /> Add to playlist
       </button>
       <button class="flex w-full items-center gap-2 px-4 py-2 hover:bg-slate-100" @click="menuAction('move')">
         <FolderInput :size="16" /> Move to…
@@ -892,8 +940,16 @@ const statusText = computed(() => {
     <PasswordDialog v-if="dialog?.type === 'password'" @close="dialog = null" />
     <FolderColorDialog v-if="dialog?.type === 'folder-color'" @close="dialog = null" />
     <ShareDialog v-if="dialog?.type === 'share'" :node="dialog.node" @close="dialog = null" @changed="refresh" />
-    <PreviewDialog v-if="preview" :node="preview" :siblings="rows" @close="preview = null" @navigate="preview = $event" />
+    <PreviewDialog
+      v-if="preview"
+      :node="preview"
+      :siblings="previewSiblings ?? rows"
+      use-player
+      @close="preview = null"
+      @navigate="preview = $event"
+    />
 
+    <MiniPlayer @open="openPlaying" />
     <UploadPanel />
   </div>
 </template>

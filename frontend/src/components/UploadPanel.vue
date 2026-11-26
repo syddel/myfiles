@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { Check, ChevronDown, ChevronUp, CircleAlert, X } from 'lucide-vue-next'
 import { cancelAll, cancelUpload, clearFinished, uploads } from '../uploads'
 import { formatSize } from '../format'
+import { player } from '../player' // sits above the audio player bar while it shows
 
 const collapsed = ref(false)
 
@@ -47,7 +48,8 @@ function close() {
 <template>
   <div
     v-if="uploads.items.length"
-    class="fixed right-4 bottom-4 z-40 w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-xl"
+    :class="player.node ? 'bottom-20' : 'bottom-4'"
+    class="fixed right-4 z-40 w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-xl"
   >
     <div class="keep-colors flex items-center gap-2 bg-slate-800 px-4 py-2.5 text-sm text-white">
       <span class="flex-1 truncate">{{ title }}</span>

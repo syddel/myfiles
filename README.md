@@ -1,8 +1,8 @@
 # MyFiles
 
-Small self-hosted file storage and sharing web app.
+A self-hosted file storage app (with web and mobile clients). Includes the ability to create a playlist, useful for music and podcasts.
 
-- Register as a user (registration can use "open", "invite code", or "admin-only" - set in `.env`)
+- Register a user (registration can use "open", "invite code", or "admin-only" - set in `.env`)
 - Upload files and whole folders, with drag and drop and per-file progress bars
 - Download files, or whole folders and multi-selections as a zip file.
 - Preview PDFs, text and code, images, audio (MP3, FLAC, ...) and video in the browser.
@@ -15,13 +15,11 @@ Small self-hosted file storage and sharing web app.
 - Set storage quotas per user (15GB default), managed on the **Admin** page or from the terminal.
 - Sortable list view, multi-select (Ctrl/Shift-click), right-click menu, and keyboard shortcuts
 
-**Stack used:** Python (FastAPI + SQLAlchemy), MariaDB, Vue 3 + Vite + Tailwind.
 
-Runs as a single process under systemd, behind Apache.
+**Stack:** Python (FastAPI + SQLAlchemy) · MariaDB · Vue 3 + Vite + Tailwind · Flutter.
+It runs as a single process under systemd, behind Apache.
 
-Files are stored on disk under `STORAGE_PATH` (set in `.env`), using random names. 
-
-File names and the folder tree are kept in MariaDB, so renaming and moving are instant and never touch the disk.
+Files are stored on disk under `STORAGE_PATH`, using random names. File names and the folder tree are kept in MariaDB, so renaming and moving are instant and never touch the disk.
 
 ---
 
@@ -147,7 +145,7 @@ sudo -u myfiles .venv/bin/python -m myfiles create-user alice
 
 ## Sharing folders and files
 
-Anyone who has a "share link" can open it without an account. To share a folder or a file, right-click it (or use the ... menu or toolbar) and choose **Share...**.
+Anyone who has a share link can open it without an account. To share a folder or a file, right-click it (or use the ⋯ menu or the toolbar) and choose **Share…**.
 
 **A shared file** is always read-only. Visitors see a page with the file's preview (images, video, audio, PDFs and text show right in the browser) and a **Download** button.
 
@@ -160,7 +158,7 @@ Anyone who has a "share link" can open it without an account. To share a folder 
 
 Even with read & write, visitors can only *add* files. They can't delete, rename, move or overwrite anything, and uploads with an existing name are saved as `name (1).ext`. Uploaded files count as the folder owner's.
 
-- Links look like `BASE_URL/Xy3...` (32 random characters). Set `BASE_URL` in `.env` to the address people use to reach MyFiles, then restart. If it isn't set, links are built from the address in your browser.
+- Links look like `BASE_URL/Xy3…` (32 random characters). Set `BASE_URL` in `.env` to the address people use to reach MyFiles, then restart. If it isn't set, links are built from the address in your browser.
 - Shared folders and files show a link icon in the file list. Click it to copy the link, change the mode, or stop sharing.
 - **Shared** in the header lists everything you've shared. From there you can share another folder, copy links, change modes, or stop sharing.
 - **Password (optional):** tick **Require a password** in the share dialog. Visitors then need the link *and* the password, and until they enter it they see nothing about the shared item, not even its name. Share the password separately from the link. Changing or removing the password makes everyone who used the old one enter the new one. After 10 wrong guesses, a visitor has to wait 10 minutes before trying again.
@@ -169,7 +167,7 @@ Even with read & write, visitors can only *add* files. They can't delete, rename
 
 ## Managing users
 
-Run these from `/opt/myfiles` as the `myfiles` user (`sudo -u myfiles .venv/bin/python -m myfiles ...`):
+Run these from `/opt/myfiles` as the `myfiles` user (`sudo -u myfiles .venv/bin/python -m myfiles …`):
 
 | Command | What it does |
 |---|---|
@@ -182,7 +180,7 @@ Run these from `/opt/myfiles` as the `myfiles` user (`sudo -u myfiles .venv/bin/
 
 ## Storage quotas
 
-Every user has a storage quota: **15GB by default**, set with `DEFAULT_QUOTA_GB` in `.env` (`0` means unlimited). Users see how much they've used in the status bar at the bottom of the page.
+Every user has a storage quota: **15 GB by default**, set with `DEFAULT_QUOTA_GB` in `.env` (`0` means unlimited). Users see how much they've used in the status bar at the bottom of the page.
 
 - An upload that would go over the quota is refused before it's sent, with a message saying how much space is left. Files uploaded by visitors through a read & write share link count against the folder owner's quota.
 - Lowering someone's quota below what they already use never deletes anything: they keep their files but can't upload until they've freed up space.
@@ -221,6 +219,10 @@ Back up both of these together:
 1. The database: `sudo mariadb-dump myfiles > myfiles.sql`
 2. The files: everything in `STORAGE_PATH/files/`
 
+## Mobile app
+
+`mobile/` contains an Android and iOS app built with Flutter. It connects to your server by its address and does what the website does, apart from the admin pages. See [mobile/README.md](mobile/README.md) for how to build and install it. The server needs no extra setup for it.
+
 ## Keyboard shortcuts
 
 | Key | Action |
@@ -241,10 +243,10 @@ Back up both of these together:
 
 ```sh
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-cp .env.example .env                 # point it at a dev database and storage dir
-.venv/bin/python -m myfiles serve    # API on :8000
+cp .env.example .env        # point it at a dev database and storage dir
+.venv/bin/python -m myfiles serve                # API on :8000
 
-cd frontend && npm install && npm run dev  # UI on :5173, proxies /api to :8000
+cd frontend && npm install && npm run dev        # UI on :5173, proxies /api to :8000
 ```
 
 Tests use SQLite by default. Set `TEST_DATABASE_URL` to run them against MariaDB:
@@ -254,7 +256,7 @@ Tests use SQLite by default. Set `TEST_DATABASE_URL` to run them against MariaDB
 TEST_DATABASE_URL='mariadb+pymysql://myfiles:pass@localhost/myfiles_test?charset=utf8mb4' .venv/bin/pytest
 ```
 
-**The MariaDB test run drops and recreates every table in that database, so use a separate test database.**
+The MariaDB test run drops and recreates every table in that database, so use a separate test database.
 
 ### Layout
 
@@ -267,8 +269,9 @@ myfiles/            Python backend
   storage.py        on-disk storage, MIME types
   zipstream.py      streaming zip downloads
   config.py         settings (.env)
-  __main__.py       command line: serve, create-user, ...
+  __main__.py       command line: serve, create-user, …
 frontend/src/       Vue app
+mobile/             Flutter app for Android and iOS
 deploy/             systemd unit, Apache config
 tests/              pytest suite
 ```

@@ -2,7 +2,8 @@
 import { onMounted, ref, watch } from 'vue'
 import { SHARE_TOKEN_RE, api, onUnauthorized } from './api'
 import { applyUserPrefs } from './prefs'
-import { toasts } from './toast'
+import { setPlayerUser } from './player'
+import { dismissToast, toasts } from './toast'
 import AuthScreen from './components/AuthScreen.vue'
 import FileBrowser from './components/FileBrowser.vue'
 import ShareView from './components/ShareView.vue'
@@ -16,7 +17,10 @@ const config = ref(null)
 const loading = ref(true)
 
 onUnauthorized(() => (user.value = null))
-watch(user, applyUserPrefs)
+watch(user, (u) => {
+  applyUserPrefs(u)
+  setPlayerUser(u) // stops audio on sign-out; loads this account's playlist
+})
 
 onMounted(async () => {
   if (shareToken) return
@@ -50,8 +54,11 @@ async function logout() {
       <div
         v-for="t in toasts.items"
         :key="t.id"
-        class="pointer-events-auto rounded-lg px-4 py-2 text-sm shadow-lg"
+        class="pointer-events-auto cursor-pointer rounded-lg px-4 py-2 text-sm shadow-lg"
         :class="t.type === 'error' ? 'bg-red-600 text-white' : 'keep-colors bg-slate-800 text-white'"
+        role="status"
+        title="Click to close"
+        @click="dismissToast(t.id)"
       >
         {{ t.message }}
       </div>

@@ -1,14 +1,23 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Download, X } from 'lucide-vue-next'
 import { contentUrl } from '../api'
 import { previewClosed, previewOpened } from '../previewHistory'
 import { PREVIEWABLE, formatSize } from '../format'
+import { pause as pauseAudio } from '../player'
+import AudioPlayer from './AudioPlayer.vue'
 import FileContent from './FileContent.vue'
 import FileIcon from './FileIcon.vue'
 
 // urlFor(id, download) builds file URLs; share links use their own endpoints.
-const props = defineProps({ node: Object, siblings: Array, urlFor: { type: Function, default: contentUrl } })
+// usePlayer: audio plays through the page-wide player (it keeps playing after closing)
+// and videos pause it. Off for share links.
+const props = defineProps({
+  node: Object,
+  siblings: Array,
+  urlFor: { type: Function, default: contentUrl },
+  usePlayer: Boolean,
+})
 const emit = defineEmits(['close', 'navigate'])
 
 const url = computed(() => props.urlFor(props.node.id))
@@ -27,6 +36,13 @@ function onKey(e) {
   else if (e.key === 'ArrowLeft') step(-1)
   else if (e.key === 'ArrowRight') step(1)
 }
+// One thing at a time: a video pauses the audio player.
+watch(
+  () => props.node.id,
+  () => props.usePlayer && props.node.kind === 'video' && pauseAudio(),
+  { immediate: true },
+)
+
 onMounted(() => {
   window.addEventListener('keydown', onKey)
   previewOpened(() => emit('close')) // the browser's Back button closes the preview
@@ -63,7 +79,8 @@ onBeforeUnmount(() => {
         <ChevronLeft :size="22" />
       </button>
 
-      <FileContent :node="node" :url="url" :download-url="urlFor(node.id, true)" dark autoplay />
+      <AudioPlayer v-if="usePlayer && node.kind === 'audio'" :node="node" @follow="emit('navigate', $event)" />
+      <FileContent v-else :node="node" :url="url" :download-url="urlFor(node.id, true)" dark autoplay />
 
       <button
         v-if="previewable.length > 1"

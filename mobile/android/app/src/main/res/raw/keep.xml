@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds strip resources that look unused. audio_service's notification /
+     lock-screen button icons are only named in Dart code (looked up at runtime with
+     getIdentifier), so they were stripped. On Android 13+ the rewind and fast-forward
+     buttons can't be built without their icon, every playback-state update failed,
+     and the audio service never became a foreground service, so Android treated the
+     app as an ordinary background app (killed for CPU use, no network in sleep).
+     Keep them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/audio_service_*" />
